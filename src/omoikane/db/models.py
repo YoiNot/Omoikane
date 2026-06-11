@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Column,
     DateTime,
@@ -73,7 +74,7 @@ class Embedding(Base):
     chunk_text = Column(Text, nullable=False)
     token_count = Column(String, default="0")
     model = Column(String, default="")
-    vector_id = Column(String, default="")
+    embedding = Column(Vector(settings.embedding_dimensions))
     created_at = Column(DateTime, default=datetime.utcnow)
 
     memory = relationship("Memory", back_populates="embeddings")

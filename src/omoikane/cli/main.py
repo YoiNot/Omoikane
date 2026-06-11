@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 
 import typer
@@ -13,40 +14,62 @@ console = Console()
 @app.command()
 def init(repo: str = typer.Option(..., help="GitHub repository (e.g., owner/repo)")):
     """Initialize Omoikane for a project."""
+    from omoikane.db.models import Project, async_session, init_db
 
-    console.print(f"[bold green]Initializing Omoikane for {repo}...[/bold green]")
+    async def _init():
+        await init_db()
+        async with async_session() as session:
+            project = Project(name=repo, description=f"GitHub: {repo}")
+            session.add(project)
+            await session.commit()
+            await session.refresh(project)
+            console.print(f"[green]Project created: {project.id}[/green]")
+            console.print(f"[dim]Run `omoikane ingest --repo {repo}` to start.[/dim]")
 
-    parts = repo.split("/")
-    if len(parts) != 2:
-        console.print("[red]Invalid repo format. Use: owner/repo[/red]")
-        raise typer.Exit(1)
-
-    console.print(f"[dim]Repository: {parts[0]}/{parts[1]}[/dim]")
-    console.print("[green]Project initialized. Run `omoikane ingest` to start.[/green]")
+    asyncio.run(_init())
 
 
 @app.command()
 def ingest(
-    repo: str = typer.Option(None, help="GitHub repo (owner/repo)"),
+    repo: str = typer.Option(..., help="GitHub repo (owner/repo)"),
     project_id: str = typer.Option(None, help="Project UUID to ingest into"),
 ):
-    """Ingest data from connected sources."""
+    """Ingest data from GitHub."""
+    from omoikane.db.models import Project, async_session, init_db
     from omoikane.ingestion.github import GitHubIngestor
 
-    if not repo and not project_id:
-        console.print("[red]Provide --repo or --project-id[/red]")
-        raise typer.Exit(1)
+    async def _ingest():
+        await init_db()
+        async with async_session() as session:
+            if project_id:
+                pid = uuid.UUID(project_id)
+            else:
+                result = await session.execute(
+                    __import__("sqlalchemy").select(Project).where(Project.name == repo)
+                )
+                project = result.scalar_one_or_none()
+                if not project:
+                    msg = (
+                        f"Project not found for {repo}. "
+                        f"Run `omoikane init --repo {repo}` first."
+                    )
+                    console.print(f"[red]{msg}[/red]")
+                    raise typer.Exit(1)
+                pid = project.id
 
-    console.print("[bold]Ingesting from GitHub...[/bold]")
+            console.print(f"[bold]Ingesting from {repo}...[/bold]")
+            ingestor = GitHubIngestor()
+            result = await ingestor.ingest_repo(repo, pid)
 
-    if repo:
-        ingestor = GitHubIngestor()
-        result = ingestor.ingest_repo(repo)
-        commits = result["commits"]
-        prs = result["prs"]
-        issues = result["issues"]
-        console.print(f"[green]Processed {commits} commits, {prs} PRs, {issues} issues[/green]")
-        console.print(f"[green]Created {result['memories']} memories[/green]")
+            commits = result["commits"]
+            prs = result["prs"]
+            issues = result["issues"]
+            console.print(
+                f"[green]Processed {commits} commits, {prs} PRs, "
+                f"{issues} issues — {result['memories']} memories created[/green]"
+            )
+
+    asyncio.run(_ingest())
 
 
 @app.command()
@@ -57,8 +80,6 @@ def search(
     limit: int = typer.Option(10, help="Max results"),
 ):
     """Search project memories."""
-    import asyncio
-
     from omoikane.db.models import async_session, init_db
     from omoikane.search.engine import SearchEngine
 
@@ -85,7 +106,10 @@ def search(
             table.add_column("Source", style="dim")
 
             for r in results:
-                table.add_row(r.memory.type, r.memory.title, f"{r.score:.2f}", r.memory.source_type)
+                table.add_row(
+                    r.memory.type, r.memory.title,
+                    f"{r.score:.2f}", r.memory.source_type,
+                )
 
             console.print(table)
 
@@ -99,8 +123,6 @@ def context(
     limit: int = typer.Option(5, help="Max memories to include"),
 ):
     """Assemble context for an AI task."""
-    import asyncio
-
     from omoikane.db.models import async_session, init_db
     from omoikane.search.engine import SearchEngine
 
