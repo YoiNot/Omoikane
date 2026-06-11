@@ -1,0 +1,58 @@
+{
+  "name": "omoikane",
+  "displayName": "Omoikane — AI Workspace Memory",
+  "description": "Persistent memory layer for AI-assisted development",
+  "version": "0.1.0",
+  "publisher": "yoi",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "omoikane.search",
+        "title": "Omoikane: Search Memories"
+      },
+      {
+        "command": "omoikane.context",
+        "title": "Omoikane: Assemble Context"
+      },
+      {
+        "command": "omoikane.createMemory",
+        "title": "Omoikane: Create Memory"
+      },
+      {
+        "command": "omoikane.createADR",
+        "title": "Omoikane: Create ADR"
+      }
+    ],
+    "configuration": {
+      "title": "Omoikane",
+      "properties": {
+        "omoikane.apiUrl": {
+          "type": "string",
+          "default": "http://localhost:8420",
+          "description": "Omoikane API URL"
+        },
+        "omoikane.projectId": {
+          "type": "string",
+          "default": "",
+          "description": "Default project UUID"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  }
+}
