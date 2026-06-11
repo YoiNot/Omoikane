@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     github_token: str = ""
     slack_token: str = ""
+    notion_token: str = ""
 
     api_host: str = "0.0.0.0"
     api_port: int = 8420

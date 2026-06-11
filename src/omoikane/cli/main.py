@@ -103,6 +103,35 @@ def ingest_slack(
     asyncio.run(_ingest_slack())
 
 
+@app.command(name="ingest-notion")
+def ingest_notion(
+    database: str = typer.Option(..., help="Notion database ID"),
+    project_id: str = typer.Option(..., help="Project UUID"),
+    max_pages: int = typer.Option(100, help="Max pages to fetch"),
+):
+    """Ingest data from a Notion database."""
+    from omoikane.db.models import init_db
+    from omoikane.ingestion.notion import NotionIngestor
+
+    async def _ingest_notion():
+        await init_db()
+        console.print(f"[bold]Ingesting from Notion database {database}...[/bold]")
+        ingestor = NotionIngestor()
+        result = await ingestor.ingest_database(
+            database_id=database,
+            project_id=uuid.UUID(project_id),
+            max_pages=max_pages,
+        )
+
+        pages = result["pages"]
+        console.print(
+            f"[green]Processed {pages} pages — "
+            f"{result['memories']} memories created[/green]"
+        )
+
+    asyncio.run(_ingest_notion())
+
+
 @app.command()
 def search(
     query: str = typer.Argument(..., help="Search query"),
