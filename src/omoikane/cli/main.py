@@ -304,6 +304,98 @@ def adr_command(
         console.print(f"[red]Unknown action: {action}[/red]")
 
 
+@app.command(name="link")
+def link_projects(
+    source: str = typer.Option(..., help="Source project UUID"),
+    target: str = typer.Option(..., help="Target project UUID"),
+    relation: str = typer.Option("related", help="Relation type"),
+):
+    """Link two projects for cross-project memory."""
+
+    from omoikane.db.models import ProjectLink, async_session, init_db
+
+    async def _link():
+        await init_db()
+        async with async_session() as session:
+            link = ProjectLink(
+                source_project_id=uuid.UUID(source),
+                target_project_id=uuid.UUID(target),
+                relation=relation,
+            )
+            session.add(link)
+            await session.commit()
+            console.print(f"[green]Linked projects: {source} <-> {target}[/green]")
+
+    asyncio.run(_link())
+
+
+@app.command(name="search-all")
+def search_all(
+    query: str = typer.Argument(..., help="Search query"),
+    project_id: str = typer.Option(..., help="Project UUID (searches linked projects too)"),
+    limit: int = typer.Option(10, help="Max results"),
+):
+    """Search across linked projects."""
+    from omoikane.db.models import async_session, init_db
+    from omoikane.search.engine import SearchEngine
+
+    async def _search_all():
+        await init_db()
+        async with async_session() as session:
+            engine = SearchEngine(session)
+            results = await engine.search_cross_project(
+                query=query,
+                project_id=uuid.UUID(project_id),
+                limit=limit,
+            )
+
+            if not results:
+                console.print("[dim]No results found.[/dim]")
+                return
+
+            table = Table(title=f"Cross-Project Search: {query}")
+            table.add_column("Type", style="cyan")
+            table.add_column("Title", style="bold")
+            table.add_column("Score", style="green")
+            table.add_column("Project", style="dim")
+
+            for r in results:
+                table.add_row(
+                    r.memory.type,
+                    r.memory.title,
+                    f"{r.score:.2f}",
+                    str(r.memory.project_id)[:8],
+                )
+
+            console.print(table)
+
+    asyncio.run(_search_all())
+
+
+@app.command(name="context-all")
+def context_all(
+    task: str = typer.Argument(..., help="Task description"),
+    project_id: str = typer.Option(..., help="Project UUID"),
+    limit: int = typer.Option(5, help="Max memories to include"),
+):
+    """Assemble context across linked projects."""
+    from omoikane.db.models import async_session, init_db
+    from omoikane.search.engine import SearchEngine
+
+    async def _context_all():
+        await init_db()
+        async with async_session() as session:
+            engine = SearchEngine(session)
+            context_block = await engine.assemble_cross_project_context(
+                task=task,
+                project_id=uuid.UUID(project_id),
+                limit=limit,
+            )
+            console.print(context_block)
+
+    asyncio.run(_context_all())
+
+
 @app.command()
 def mcp():
     """Start the MCP server (stdio transport)."""
