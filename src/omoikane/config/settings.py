@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     embedding_dimensions: int = 1536
 
     github_token: str = ""
+    slack_token: str = ""
 
     api_host: str = "0.0.0.0"
     api_port: int = 8420

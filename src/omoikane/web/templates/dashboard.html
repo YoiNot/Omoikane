@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Omoikane — AI Workspace Memory</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: #e0e0e0; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        header { border-bottom: 1px solid #333; padding-bottom: 1rem; margin-bottom: 2rem; }
+        h1 { font-size: 1.5rem; color: #fff; }
+        h1 span { color: #6366f1; }
+        .search-box { display: flex; gap: 0.5rem; margin: 1.5rem 0; }
+        .search-box input { flex: 1; padding: 0.75rem 1rem; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; color: #fff; font-size: 1rem; }
+        .search-box input:focus { outline: none; border-color: #6366f1; }
+        .search-box button { padding: 0.75rem 1.5rem; background: #6366f1; border: none; border-radius: 6px; color: #fff; font-size: 1rem; cursor: pointer; }
+        .search-box button:hover { background: #5558e6; }
+        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 2rem 0; }
+        .stat { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 1.25rem; }
+        .stat-value { font-size: 2rem; font-weight: 700; color: #6366f1; }
+        .stat-label { font-size: 0.875rem; color: #888; margin-top: 0.25rem; }
+        .results { margin-top: 2rem; }
+        .result { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 1.25rem; margin-bottom: 0.75rem; }
+        .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+        .result-title { font-weight: 600; color: #fff; }
+        .result-type { font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px; background: #6366f1; color: #fff; }
+        .result-score { font-size: 0.875rem; color: #22c55e; }
+        .result-content { font-size: 0.875rem; color: #888; line-height: 1.5; }
+        .result-meta { font-size: 0.75rem; color: #555; margin-top: 0.5rem; }
+        .empty { text-align: center; padding: 3rem; color: #555; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><span>Omoikane</span> — AI Workspace Memory</h1>
+        </header>
+
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Search memories... (e.g., 'how does auth work')" />
+            <button onclick="search()">Search</button>
+        </div>
+
+        <div class="stats" id="stats">
+            <div class="stat"><div class="stat-value" id="totalMemories">-</div><div class="stat-label">Total Memories</div></div>
+            <div class="stat"><div class="stat-value" id="totalProjects">-</div><div class="stat-label">Projects</div></div>
+            <div class="stat"><div class="stat-value" id="totalDecisions">-</div><div class="stat-label">ADRs</div></div>
+            <div class="stat"><div class="stat-value" id="totalSources">-</div><div class="stat-label">Sources</div></div>
+        </div>
+
+        <div class="results" id="results">
+            <div class="empty">Enter a query to search project memories</div>
+        </div>
+    </div>
+
+    <script>
+        async function search() {
+            const query = document.getElementById('searchInput').value;
+            if (!query) return;
+
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="empty">Searching...</div>';
+
+            try {
+                const resp = await fetch('/v1/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query, limit: 10 })
+                });
+                const data = await resp.json();
+
+                if (data.length === 0) {
+                    resultsDiv.innerHTML = '<div class="empty">No results found</div>';
+                    return;
+                }
+
+                resultsDiv.innerHTML = data.map(r => `
+                    <div class="result">
+                        <div class="result-header">
+                            <span class="result-title">${r.memory.title}</span>
+                            <div>
+                                <span class="result-type">${r.memory.type}</span>
+                                <span class="result-score">${r.score.toFixed(2)}</span>
+                            </div>
+                        </div>
+                        <div class="result-content">${r.memory.content.substring(0, 300)}${r.memory.content.length > 300 ? '...' : ''}</div>
+                        <div class="result-meta">Source: ${r.memory.source_type} | Author: ${r.memory.source_author}</div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                resultsDiv.innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+            }
+        }
+
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') search();
+        });
+    </script>
+</body>
+</html>

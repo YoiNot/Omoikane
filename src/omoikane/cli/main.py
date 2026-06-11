@@ -72,6 +72,37 @@ def ingest(
     asyncio.run(_ingest())
 
 
+@app.command(name="ingest-slack")
+def ingest_slack(
+    channel: str = typer.Option(..., help="Slack channel ID"),
+    project_id: str = typer.Option(..., help="Project UUID"),
+    max_messages: int = typer.Option(100, help="Max messages to fetch"),
+):
+    """Ingest data from a Slack channel."""
+    from omoikane.db.models import init_db
+    from omoikane.ingestion.slack import SlackIngestor
+
+    async def _ingest_slack():
+        await init_db()
+        console.print(f"[bold]Ingesting from Slack channel {channel}...[/bold]")
+        ingestor = SlackIngestor()
+        result = await ingestor.ingest_channel(
+            channel_id=channel,
+            project_id=uuid.UUID(project_id),
+            max_messages=max_messages,
+        )
+
+        messages = result["messages"]
+        decisions = result["decisions"]
+        console.print(
+            f"[green]Processed {messages} messages, "
+            f"found {decisions} decisions — "
+            f"{result['memories']} memories created[/green]"
+        )
+
+    asyncio.run(_ingest_slack())
+
+
 @app.command()
 def search(
     query: str = typer.Argument(..., help="Search query"),
@@ -121,6 +152,7 @@ def context(
     task: str = typer.Argument(..., help="Task description"),
     project_id: str = typer.Option(..., help="Project UUID"),
     limit: int = typer.Option(5, help="Max memories to include"),
+    output: str = typer.Option("text", help="Output format: text, markdown"),
 ):
     """Assemble context for an AI task."""
     from omoikane.db.models import async_session, init_db
@@ -131,16 +163,12 @@ def context(
         async with async_session() as session:
             engine = SearchEngine(session)
             pid = uuid.UUID(project_id)
-            results = await engine.search(query=task, project_id=pid, limit=limit)
-
-            console.print(f"[bold]Context for: {task}[/bold]\n")
-            for r in results:
-                score = f"{r.score:.2f}"
-                console.print(
-                    f"[cyan][{r.memory.type}][/cyan] "
-                    f"{r.memory.title} (score: {score})"
-                )
-                console.print(f"  {r.memory.content[:200]}...\n")
+            context_block = await engine.assemble_context(
+                task=task,
+                project_id=pid,
+                limit=limit,
+            )
+            console.print(context_block)
 
     asyncio.run(_context())
 

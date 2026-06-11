@@ -6,6 +6,7 @@ from fastapi import FastAPI
 
 from omoikane.api.routes import router
 from omoikane.db.models import init_db
+from omoikane.web.routes import router as web_router
 
 
 @asynccontextmanager
@@ -22,4 +23,5 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     app.include_router(router, prefix="/v1")
+    app.include_router(web_router)
     return app

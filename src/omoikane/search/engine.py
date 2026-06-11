@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timedelta
 
 from openai import AsyncOpenAI
 from sqlalchemy import select
@@ -75,3 +76,45 @@ class SearchEngine:
             for memory, embedding, row_distance in rows
             for row in [type("Row", (), {"distance": row_distance})()]
         ]
+
+    async def assemble_context(
+        self,
+        task: str,
+        project_id: uuid.UUID,
+        limit: int = 5,
+    ) -> str:
+        results = await self.search(query=task, project_id=project_id, limit=limit)
+
+        if not results:
+            return f"# Context for: {task}\n\nNo relevant memories found.\n"
+
+        lines = [f"# Context for: {task}\n"]
+        lines.append(f"Found {len(results)} relevant memories:\n")
+
+        for i, r in enumerate(results, 1):
+            memory = r.memory
+            lines.append(f"## {i}. [{memory.type.upper()}] {memory.title}")
+            lines.append(f"Relevance: {r.score:.2f} | Source: {memory.source_type}")
+            if memory.source_url:
+                lines.append(f"URL: {memory.source_url}")
+            lines.append(f"\n{memory.content}\n")
+            lines.append("---\n")
+
+        return "\n".join(lines)
+
+    async def get_recent_memories(
+        self,
+        project_id: uuid.UUID,
+        days: int = 7,
+        limit: int = 10,
+    ) -> list[MemoryResponse]:
+        cutoff = datetime.utcnow() - timedelta(days=days)
+        stmt = (
+            select(Memory)
+            .where(Memory.project_id == project_id)
+            .where(Memory.created_at >= cutoff)
+            .order_by(Memory.created_at.desc())
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return [MemoryResponse.model_validate(m) for m in result.scalars().all()]
