@@ -17,7 +17,7 @@ from omoikane.search.engine import SearchEngine
 def create_mcp_server() -> Server:
     server = Server("omoikane")
 
-    @server.list_tools()
+    @server.list_tools()  # type: ignore[no-untyped-call,untyped-decorator]
     async def list_tools() -> list[Tool]:
         return [
             Tool(
@@ -238,7 +238,7 @@ def create_mcp_server() -> Server:
             ),
         ]
 
-    @server.call_tool()
+    @server.call_tool()  # type: ignore[untyped-decorator]
     async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         await init_db()
         async with async_session() as session:
@@ -285,7 +285,7 @@ def create_mcp_server() -> Server:
                 session.add(memory)
                 await session.flush()
                 await engine.store_embedding(
-                    memory.id,
+                    memory.id,  # type: ignore[arg-type]
                     f"{arguments['title']}\n\n{arguments['content']}",
                 )
                 await session.commit()
@@ -321,7 +321,7 @@ def create_mcp_server() -> Server:
                 )
                 session.add(decision)
                 await session.commit()
-                await engine.store_embedding(memory.id, f"{arguments['title']}\n\n{content}")
+                await engine.store_embedding(memory.id, f"{arguments['title']}\n\n{content}")  # type: ignore[arg-type]
                 return [TextContent(type="text", text=f"ADR created: {decision.id}")]
 
             elif name == "list_memories":
@@ -367,8 +367,8 @@ def create_mcp_server() -> Server:
                 lines = []
                 for d in decisions:
                     lines.append(
-                        f"## {d.title}\nStatus: {d.status}\n"
-                        f"Decision: {d.decision}\n"
+                        f"## {d.title}\nStatus: {d.status}\n"  # type: ignore[attr-defined]
+                        f"Decision: {d.decision}\n"  # type: ignore[attr-defined]
                     )
                 return [TextContent(type="text", text="\n---\n".join(lines))]
 
@@ -420,7 +420,7 @@ def create_mcp_server() -> Server:
     return server
 
 
-async def run_mcp_server():
+async def run_mcp_server() -> None:
     server = create_mcp_server()
     async with stdio_server() as (read_stream, write_stream):
         await server.run(read_stream, write_stream, server.create_initialization_options())

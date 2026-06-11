@@ -11,7 +11,7 @@ from omoikane.search.engine import SearchEngine
 
 
 class GitHubIngestor:
-    def __init__(self):
+    def __init__(self) -> None:
         self.token = settings.github_token
         self.base_url = "https://api.github.com"
         self.headers = {
@@ -53,7 +53,7 @@ class GitHubIngestor:
                 memory = Memory(project_id=project_id, **data)
                 session.add(memory)
                 await session.flush()
-                await engine.store_embedding(memory.id, f"{data['title']}\n\n{data['content']}")
+                await engine.store_embedding(memory.id, f"{data['title']}\n\n{data['content']}")  # type: ignore[arg-type]
                 memories_created += 1
 
             for pr in prs:
@@ -61,7 +61,7 @@ class GitHubIngestor:
                 memory = Memory(project_id=project_id, **data)
                 session.add(memory)
                 await session.flush()
-                await engine.store_embedding(memory.id, f"{data['title']}\n\n{data['content']}")
+                await engine.store_embedding(memory.id, f"{data['title']}\n\n{data['content']}")  # type: ignore[arg-type]
                 memories_created += 1
 
             for issue in issues:
@@ -69,7 +69,7 @@ class GitHubIngestor:
                 memory = Memory(project_id=project_id, **data)
                 session.add(memory)
                 await session.flush()
-                await engine.store_embedding(memory.id, f"{data['title']}\n\n{data['content']}")
+                await engine.store_embedding(memory.id, f"{data['title']}\n\n{data['content']}")  # type: ignore[arg-type]
                 memories_created += 1
 
             source = Source(
@@ -88,7 +88,7 @@ class GitHubIngestor:
             "memories": memories_created,
         }
 
-    def _extract_commit(self, commit: dict) -> dict:
+    def _extract_commit(self, commit: dict[str, Any]) -> dict[str, str]:
         return {
             "type": "context",
             "title": commit.get("commit", {}).get("message", "").split("\n")[0][:200],
@@ -98,7 +98,7 @@ class GitHubIngestor:
             "source_author": commit.get("commit", {}).get("author", {}).get("name", ""),
         }
 
-    def _extract_pr(self, pr: dict) -> dict:
+    def _extract_pr(self, pr: dict[str, Any]) -> dict[str, str]:
         body = pr.get("body") or ""
         return {
             "type": "discussion" if "decision" in body.lower() else "context",
@@ -109,7 +109,7 @@ class GitHubIngestor:
             "source_author": pr.get("user", {}).get("login", ""),
         }
 
-    def _extract_issue(self, issue: dict) -> dict:
+    def _extract_issue(self, issue: dict[str, Any]) -> dict[str, str]:
         body = issue.get("body") or ""
         labels = [label.get("name", "") for label in issue.get("labels", [])]
         memory_type = "decision" if "adr" in labels or "decision" in labels else "context"

@@ -33,26 +33,42 @@ router = APIRouter()
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
+def _adr_to_response(d: Decision) -> ADRResponse:
+    return ADRResponse(
+        id=d.id,  # type: ignore[arg-type]
+        memory_id=d.memory_id,  # type: ignore[arg-type]
+        project_id=d.project_id,  # type: ignore[arg-type]
+        title=d.title,  # type: ignore[arg-type]
+        context=d.context,  # type: ignore[arg-type]
+        decision=d.decision,  # type: ignore[arg-type]
+        consequences=d.consequences,  # type: ignore[arg-type]
+        alternatives=d.alternatives or [],  # type: ignore[arg-type]
+        status=d.status,  # type: ignore[arg-type]
+        participants=d.participants or [],  # type: ignore[arg-type]
+        decided_at=d.decided_at,  # type: ignore[arg-type]
+    )
+
+
 @router.post("/projects", response_model=ProjectResponse)
-async def create_project(data: ProjectCreate, session: SessionDep):
+async def create_project(data: ProjectCreate, session: SessionDep) -> ProjectResponse:
     project = Project(name=data.name, description=data.description)
     session.add(project)
     await session.commit()
     await session.refresh(project)
-    return project
+    return project  # type: ignore[return-value]
 
 
 @router.get("/projects/{project_id}", response_model=ProjectResponse)
-async def get_project(project_id: uuid.UUID, session: SessionDep):
+async def get_project(project_id: uuid.UUID, session: SessionDep) -> ProjectResponse:
     result = await session.execute(select(Project).where(Project.id == project_id))
     project = result.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    return project
+    return project  # type: ignore[return-value]
 
 
 @router.post("/memories", response_model=MemoryResponse)
-async def create_memory(data: MemoryCreate, session: SessionDep):
+async def create_memory(data: MemoryCreate, session: SessionDep) -> MemoryResponse:
     memory = Memory(
         project_id=data.project_id,
         type=data.type,
@@ -66,21 +82,21 @@ async def create_memory(data: MemoryCreate, session: SessionDep):
     session.add(memory)
     await session.commit()
     await session.refresh(memory)
-    return memory
+    return memory  # type: ignore[return-value]
 
 
 @router.get("/projects/{project_id}/memories", response_model=list[MemoryResponse])
-async def list_memories(project_id: uuid.UUID, session: SessionDep):
+async def list_memories(project_id: uuid.UUID, session: SessionDep) -> list[MemoryResponse]:
     result = await session.execute(
         select(Memory)
         .where(Memory.project_id == project_id)
         .order_by(Memory.created_at.desc())
     )
-    return result.scalars().all()
+    return result.scalars().all()  # type: ignore[return-value]
 
 
 @router.post("/search", response_model=list[SearchResult])
-async def search_memories(data: SearchRequest, session: SessionDep):
+async def search_memories(data: SearchRequest, session: SessionDep) -> list[SearchResult]:
     engine = SearchEngine(session)
     results = await engine.search(
         query=data.query,
@@ -92,7 +108,7 @@ async def search_memories(data: SearchRequest, session: SessionDep):
 
 
 @router.post("/context", response_model=ContextResponse)
-async def assemble_context(data: ContextRequest, session: SessionDep):
+async def assemble_context(data: ContextRequest, session: SessionDep) -> ContextResponse:
     engine = SearchEngine(session)
     results = await engine.search(
         query=data.task,
@@ -113,7 +129,7 @@ async def assemble_context(data: ContextRequest, session: SessionDep):
 
 
 @router.post("/decisions", response_model=ADRResponse)
-async def create_adr(data: ADRCreate, session: SessionDep):
+async def create_adr(data: ADRCreate, session: SessionDep) -> ADRResponse:
     content = (
         f"## Context\n{data.context}\n\n"
         f"## Decision\n{data.decision}\n\n"
@@ -144,45 +160,18 @@ async def create_adr(data: ADRCreate, session: SessionDep):
     await session.commit()
     await session.refresh(decision)
 
-    return ADRResponse(
-        id=decision.id,
-        memory_id=memory.id,
-        project_id=data.project_id,
-        title=data.title,
-        context=data.context,
-        decision=data.decision,
-        consequences=data.consequences,
-        alternatives=data.alternatives,
-        status="accepted",
-        participants=data.participants,
-        decided_at=None,
-    )
+    return _adr_to_response(decision)
 
 
 @router.get("/decisions/{project_id}", response_model=list[ADRResponse])
-async def list_adrs(project_id: uuid.UUID, session: SessionDep):
+async def list_adrs(project_id: uuid.UUID, session: SessionDep) -> list[ADRResponse]:
     result = await session.execute(
         select(Decision)
         .where(Decision.project_id == project_id)
         .order_by(Decision.created_at.desc())
     )
     decisions = result.scalars().all()
-    return [
-        ADRResponse(
-            id=d.id,
-            memory_id=d.memory_id,
-            project_id=d.project_id,
-            title=d.title,
-            context=d.context,
-            decision=d.decision,
-            consequences=d.consequences,
-            alternatives=d.alternatives or [],
-            status=d.status,
-            participants=d.participants or [],
-            decided_at=d.decided_at,
-        )
-        for d in decisions
-    ]
+    return [_adr_to_response(d) for d in decisions]
 
 
 @router.post("/projects/{project_id}/links")
@@ -191,7 +180,7 @@ async def link_projects(
     target_id: uuid.UUID,
     relation: str = "related",
     session: SessionDep = Depends(get_session),  # noqa: B008
-):
+) -> dict[str, str | uuid.UUID]:
     from omoikane.db.models import ProjectLink
 
     link = ProjectLink(
@@ -205,7 +194,7 @@ async def link_projects(
 
 
 @router.get("/projects/{project_id}/links")
-async def list_links(project_id: uuid.UUID, session: SessionDep):
+async def list_links(project_id: uuid.UUID, session: SessionDep) -> list[dict[str, str]]:
     from omoikane.db.models import ProjectLink
 
     result = await session.execute(
@@ -220,7 +209,7 @@ async def list_links(project_id: uuid.UUID, session: SessionDep):
             "id": str(link.id),
             "source": str(link.source_project_id),
             "target": str(link.target_project_id),
-            "relation": link.relation,
+            "relation": str(link.relation),
         }
         for link in links
     ]
@@ -230,11 +219,11 @@ async def list_links(project_id: uuid.UUID, session: SessionDep):
 async def search_cross_project(
     data: SearchRequest,
     session: SessionDep,
-):
+) -> list[SearchResult]:
     engine = SearchEngine(session)
     results = await engine.search_cross_project(
         query=data.query,
-        project_id=data.project_id,
+        project_id=data.project_id,  # type: ignore[arg-type]
         memory_type=data.memory_type,
         limit=data.limit,
     )
@@ -245,7 +234,7 @@ async def search_cross_project(
 async def assemble_cross_context(
     data: ContextRequest,
     session: SessionDep,
-):
+) -> ContextResponse:
     engine = SearchEngine(session)
     context_block = await engine.assemble_cross_project_context(
         task=data.task,
@@ -265,35 +254,35 @@ async def assemble_cross_context(
 
 
 @router.post("/teams", response_model=TeamResponse)
-async def create_team(data: TeamCreate, session: SessionDep):
+async def create_team(data: TeamCreate, session: SessionDep) -> TeamResponse:
     from omoikane.db.models import Team
 
     team = Team(name=data.name, slug=data.slug)
     session.add(team)
     await session.commit()
     await session.refresh(team)
-    return team
+    return team  # type: ignore[return-value]
 
 
 @router.get("/teams/{team_id}", response_model=TeamResponse)
-async def get_team(team_id: uuid.UUID, session: SessionDep):
+async def get_team(team_id: uuid.UUID, session: SessionDep) -> TeamResponse:
     from omoikane.db.models import Team
 
     result = await session.execute(select(Team).where(Team.id == team_id))
     team = result.scalar_one_or_none()
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
-    return team
+    return team  # type: ignore[return-value]
 
 
 @router.get("/teams/{team_id}/members", response_model=list[MembershipResponse])
-async def list_members(team_id: uuid.UUID, session: SessionDep):
+async def list_members(team_id: uuid.UUID, session: SessionDep) -> list[MembershipResponse]:
     from omoikane.db.models import Membership
 
     result = await session.execute(
         select(Membership).where(Membership.team_id == team_id)
     )
-    return result.scalars().all()
+    return result.scalars().all()  # type: ignore[return-value]
 
 
 @router.post("/teams/{team_id}/members", response_model=MembershipResponse)
@@ -301,7 +290,7 @@ async def add_member(
     team_id: uuid.UUID,
     data: MembershipCreate,
     session: SessionDep,
-):
+) -> MembershipResponse:
     from omoikane.db.models import Membership
 
     membership = Membership(
@@ -312,26 +301,26 @@ async def add_member(
     session.add(membership)
     await session.commit()
     await session.refresh(membership)
-    return membership
+    return membership  # type: ignore[return-value]
 
 
 @router.post("/users", response_model=UserResponse)
-async def create_user(data: UserCreate, session: SessionDep):
+async def create_user(data: UserCreate, session: SessionDep) -> UserResponse:
     from omoikane.db.models import User
 
     user = User(email=data.email, name=data.name)
     session.add(user)
     await session.commit()
     await session.refresh(user)
-    return user
+    return user  # type: ignore[return-value]
 
 
 @router.get("/users/{user_id}", response_model=UserResponse)
-async def get_user(user_id: uuid.UUID, session: SessionDep):
+async def get_user(user_id: uuid.UUID, session: SessionDep) -> UserResponse:
     from omoikane.db.models import User
 
     result = await session.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
+    return user  # type: ignore[return-value]

@@ -11,7 +11,7 @@ from omoikane.search.engine import SearchEngine
 
 
 class NotionIngestor:
-    def __init__(self):
+    def __init__(self) -> None:
         self.token = settings.notion_token
         self.base_url = "https://api.notion.com/v1"
         self.headers = {
@@ -38,7 +38,7 @@ class NotionIngestor:
                 session.add(memory)
                 await session.flush()
                 await engine.store_embedding(
-                    memory.id,
+                    memory.id,  # type: ignore[arg-type]
                     f"{data['title']}\n\n{data['content']}",
                 )
                 memories_created += 1
@@ -86,7 +86,7 @@ class NotionIngestor:
 
         return pages[:limit]
 
-    def _extract_page(self, page: dict, database_id: str) -> dict:
+    def _extract_page(self, page: dict[str, Any], database_id: str) -> dict[str, str]:
         properties = page.get("properties", {})
         title = self._extract_title(properties)
         content = self._extract_content(properties)
@@ -101,14 +101,14 @@ class NotionIngestor:
             "source_author": "",
         }
 
-    def _extract_title(self, properties: dict) -> str:
+    def _extract_title(self, properties: dict[str, Any]) -> str:
         for prop in properties.values():
             if prop.get("type") == "title":
                 title_parts = prop.get("title", [])
                 return "".join(part.get("plain_text", "") for part in title_parts)
         return "Untitled"
 
-    def _extract_content(self, properties: dict) -> str:
+    def _extract_content(self, properties: dict[str, Any]) -> str:
         parts: list[str] = []
         for key, prop in properties.items():
             prop_type = prop.get("type", "")

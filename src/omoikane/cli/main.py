@@ -12,7 +12,7 @@ console = Console()
 
 
 @app.command()
-def status():
+def status() -> None:
     """Check Omoikane configuration and connectivity."""
     from omoikane.config.settings import settings
 
@@ -49,11 +49,11 @@ def status():
 
 
 @app.command()
-def init(repo: str = typer.Option(..., help="GitHub repository (e.g., owner/repo)")):
+def init(repo: str = typer.Option(..., help="GitHub repository (e.g., owner/repo)")) -> None:
     """Initialize Omoikane for a project."""
     from omoikane.db.models import Project, async_session, init_db
 
-    async def _init():
+    async def _init() -> None:
         await init_db()
         async with async_session() as session:
             project = Project(name=repo, description=f"GitHub: {repo}")
@@ -70,14 +70,15 @@ def init(repo: str = typer.Option(..., help="GitHub repository (e.g., owner/repo
 def ingest(
     repo: str = typer.Option(..., help="GitHub repo (owner/repo)"),
     project_id: str = typer.Option(None, help="Project UUID to ingest into"),
-):
+) -> None:
     """Ingest data from GitHub."""
     from omoikane.db.models import Project, async_session, init_db
     from omoikane.ingestion.github import GitHubIngestor
 
-    async def _ingest():
+    async def _ingest() -> None:
         await init_db()
         async with async_session() as session:
+            pid: uuid.UUID
             if project_id:
                 pid = uuid.UUID(project_id)
             else:
@@ -96,14 +97,14 @@ def ingest(
 
             console.print(f"[bold]Ingesting from {repo}...[/bold]")
             ingestor = GitHubIngestor()
-            result = await ingestor.ingest_repo(repo, pid)
+            ingest_result: dict[str, int] = await ingestor.ingest_repo(repo, pid)
 
-            commits = result["commits"]
-            prs = result["prs"]
-            issues = result["issues"]
+            commits = ingest_result["commits"]
+            prs = ingest_result["prs"]
+            issues = ingest_result["issues"]
             console.print(
                 f"[green]Processed {commits} commits, {prs} PRs, "
-                f"{issues} issues — {result['memories']} memories created[/green]"
+                f"{issues} issues — {ingest_result['memories']} memories created[/green]"
             )
 
     asyncio.run(_ingest())
@@ -114,12 +115,12 @@ def ingest_slack(
     channel: str = typer.Option(..., help="Slack channel ID"),
     project_id: str = typer.Option(..., help="Project UUID"),
     max_messages: int = typer.Option(100, help="Max messages to fetch"),
-):
+) -> None:
     """Ingest data from a Slack channel."""
     from omoikane.db.models import init_db
     from omoikane.ingestion.slack import SlackIngestor
 
-    async def _ingest_slack():
+    async def _ingest_slack() -> None:
         await init_db()
         console.print(f"[bold]Ingesting from Slack channel {channel}...[/bold]")
         ingestor = SlackIngestor()
@@ -145,12 +146,12 @@ def ingest_notion(
     database: str = typer.Option(..., help="Notion database ID"),
     project_id: str = typer.Option(..., help="Project UUID"),
     max_pages: int = typer.Option(100, help="Max pages to fetch"),
-):
+) -> None:
     """Ingest data from a Notion database."""
     from omoikane.db.models import init_db
     from omoikane.ingestion.notion import NotionIngestor
 
-    async def _ingest_notion():
+    async def _ingest_notion() -> None:
         await init_db()
         console.print(f"[bold]Ingesting from Notion database {database}...[/bold]")
         ingestor = NotionIngestor()
@@ -175,12 +176,12 @@ def search(
     project_id: str = typer.Option(None, help="Filter by project UUID"),
     memory_type: str = typer.Option(None, help="Filter by memory type"),
     limit: int = typer.Option(10, help="Max results"),
-):
+) -> None:
     """Search project memories."""
     from omoikane.db.models import async_session, init_db
     from omoikane.search.engine import SearchEngine
 
-    async def _search():
+    async def _search() -> None:
         await init_db()
         async with async_session() as session:
             engine = SearchEngine(session)
@@ -219,12 +220,12 @@ def context(
     project_id: str = typer.Option(..., help="Project UUID"),
     limit: int = typer.Option(5, help="Max memories to include"),
     output: str = typer.Option("text", help="Output format: text, markdown"),
-):
+) -> None:
     """Assemble context for an AI task."""
     from omoikane.db.models import async_session, init_db
     from omoikane.search.engine import SearchEngine
 
-    async def _context():
+    async def _context() -> None:
         await init_db()
         async with async_session() as session:
             engine = SearchEngine(session)
@@ -244,12 +245,12 @@ def adr_command(
     action: str = typer.Argument(..., help="Action: create, list"),
     project_id: str = typer.Option(..., help="Project UUID"),
     title: str = typer.Option(None, help="ADR title"),
-):
+) -> None:
     """Manage Architecture Decision Records."""
     from omoikane.api.schemas import ADRCreate
     from omoikane.db.models import async_session, init_db
 
-    async def _create_adr():
+    async def _create_adr() -> None:
         await init_db()
         async with async_session() as session:
             from omoikane.search.engine import SearchEngine
@@ -301,11 +302,11 @@ def adr_command(
             session.add(decision)
             await session.commit()
 
-            await engine.store_embedding(memory.id, f"{data.title}\n\n{content}")
+            await engine.store_embedding(memory.id, f"{data.title}\n\n{content}")  # type: ignore[arg-type]
 
             console.print(f"[green]ADR created: {decision.id}[/green]")
 
-    async def _list_adrs():
+    async def _list_adrs() -> None:
         await init_db()
         async with async_session() as session:
             from sqlalchemy import select
@@ -346,12 +347,12 @@ def link_projects(
     source: str = typer.Option(..., help="Source project UUID"),
     target: str = typer.Option(..., help="Target project UUID"),
     relation: str = typer.Option("related", help="Relation type"),
-):
+) -> None:
     """Link two projects for cross-project memory."""
 
     from omoikane.db.models import ProjectLink, async_session, init_db
 
-    async def _link():
+    async def _link() -> None:
         await init_db()
         async with async_session() as session:
             link = ProjectLink(
@@ -371,12 +372,12 @@ def search_all(
     query: str = typer.Argument(..., help="Search query"),
     project_id: str = typer.Option(..., help="Project UUID (searches linked projects too)"),
     limit: int = typer.Option(10, help="Max results"),
-):
+) -> None:
     """Search across linked projects."""
     from omoikane.db.models import async_session, init_db
     from omoikane.search.engine import SearchEngine
 
-    async def _search_all():
+    async def _search_all() -> None:
         await init_db()
         async with async_session() as session:
             engine = SearchEngine(session)
@@ -414,12 +415,12 @@ def context_all(
     task: str = typer.Argument(..., help="Task description"),
     project_id: str = typer.Option(..., help="Project UUID"),
     limit: int = typer.Option(5, help="Max memories to include"),
-):
+) -> None:
     """Assemble context across linked projects."""
     from omoikane.db.models import async_session, init_db
     from omoikane.search.engine import SearchEngine
 
-    async def _context_all():
+    async def _context_all() -> None:
         await init_db()
         async with async_session() as session:
             engine = SearchEngine(session)
@@ -437,11 +438,11 @@ def context_all(
 def team_create(
     name: str = typer.Option(..., help="Team name"),
     slug: str = typer.Option(..., help="Team slug"),
-):
+) -> None:
     """Create a new team."""
     from omoikane.db.models import Team, async_session, init_db
 
-    async def _team_create():
+    async def _team_create() -> None:
         await init_db()
         async with async_session() as session:
             team = Team(name=name, slug=slug)
@@ -458,11 +459,11 @@ def team_add_member(
     team_id: str = typer.Option(..., help="Team UUID"),
     user_id: str = typer.Option(..., help="User UUID"),
     role: str = typer.Option("member", help="Role: member, admin, owner"),
-):
+) -> None:
     """Add a member to a team."""
     from omoikane.db.models import Membership, async_session, init_db
 
-    async def _add_member():
+    async def _add_member() -> None:
         await init_db()
         async with async_session() as session:
             membership = Membership(
@@ -480,13 +481,13 @@ def team_add_member(
 @app.command(name="team-list")
 def team_list(
     team_id: str = typer.Option(..., help="Team UUID"),
-):
+) -> None:
     """List team members."""
     from sqlalchemy import select
 
     from omoikane.db.models import Membership, User, async_session, init_db
 
-    async def _team_list():
+    async def _team_list() -> None:
         await init_db()
         async with async_session() as session:
             result = await session.execute(
@@ -514,7 +515,7 @@ def team_list(
 
 
 @app.command()
-def mcp():
+def mcp() -> None:
     """Start the MCP server (stdio transport)."""
     import asyncio
 
@@ -527,7 +528,7 @@ def mcp():
 def serve(
     host: str = typer.Option("0.0.0.0", help="API host"),
     port: int = typer.Option(8420, help="API port"),
-):
+) -> None:
     """Start the Omoikane API server."""
     import uvicorn
 

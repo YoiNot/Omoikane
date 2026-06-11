@@ -16,7 +16,7 @@ class SearchEngine:
     def __init__(self, session: AsyncSession):
         self.session = session
         if settings.openai_api_key:
-            self.client = AsyncOpenAI(api_key=settings.openai_api_key)
+            self.client: AsyncOpenAI | None = AsyncOpenAI(api_key=settings.openai_api_key)
         else:
             self.client = None
 
@@ -130,9 +130,9 @@ class SearchEngine:
         linked_ids: list[uuid.UUID] = []
         for link in links:
             if link.source_project_id == project_id:
-                linked_ids.append(link.target_project_id)
+                linked_ids.append(link.target_project_id)  # type: ignore[arg-type]
             else:
-                linked_ids.append(link.source_project_id)
+                linked_ids.append(link.source_project_id)  # type: ignore[arg-type]
         return linked_ids
 
     async def search_cross_project(

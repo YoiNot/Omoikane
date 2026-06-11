@@ -11,7 +11,7 @@ from omoikane.search.engine import SearchEngine
 
 
 class SlackIngestor:
-    def __init__(self):
+    def __init__(self) -> None:
         self.token = settings.slack_token
         self.base_url = "https://slack.com/api"
         self.headers = {
@@ -38,7 +38,7 @@ class SlackIngestor:
                 session.add(memory)
                 await session.flush()
                 await engine.store_embedding(
-                    memory.id,
+                    memory.id,  # type: ignore[arg-type]
                     f"{data['title']}\n\n{data['content']}",
                 )
                 memories_created += 1
@@ -93,7 +93,7 @@ class SlackIngestor:
 
         return messages[:limit]
 
-    def _filter_decision_messages(self, messages: list[dict]) -> list[dict]:
+    def _filter_decision_messages(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         decision_keywords = [
             "decided", "decision", "we'll go with", "chosen",
             "resolved", "conclusion", "agreed", "final answer",
@@ -107,7 +107,7 @@ class SlackIngestor:
             )
         ]
 
-    def _extract_memory(self, msg: dict, channel_id: str) -> dict:
+    def _extract_memory(self, msg: dict[str, Any], channel_id: str) -> dict[str, str]:
         text = msg.get("text", "")
         user = msg.get("user", "unknown")
         ts = msg.get("ts", "")
