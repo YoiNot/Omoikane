@@ -128,6 +128,27 @@ class Decision(Base):
     project = relationship("Project")
 
 
+class ProjectLink(Base):
+    __tablename__ = "project_links"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    source_project_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    target_project_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    relation = Column(String, default="related")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    source_project = relationship("Project", foreign_keys=[source_project_id])
+    target_project = relationship("Project", foreign_keys=[target_project_id])
+
+
 engine = create_async_engine(settings.database_url, echo=False)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
