@@ -12,6 +12,43 @@ console = Console()
 
 
 @app.command()
+def status():
+    """Check Omoikane configuration and connectivity."""
+    from omoikane.config.settings import settings
+
+    console.print("[bold]Omoikane Status[/bold]\n")
+
+    db_url = settings.database_url
+    if db_url:
+        masked = db_url.replace(db_url.split("@")[0].split("//")[1], "***")
+        console.print(f"[green]✓[/green] Database: {masked}")
+    else:
+        console.print("[red]✗[/red] Database: not configured")
+
+    if settings.openai_api_key:
+        console.print("[green]✓[/green] OpenAI API key: configured")
+    else:
+        console.print("[red]✗[/red] OpenAI API key: not set")
+
+    if settings.github_token:
+        console.print("[green]✓[/green] GitHub token: configured")
+    else:
+        console.print("[dim]○[/dim] GitHub token: not set (optional)")
+
+    if settings.slack_token:
+        console.print("[green]✓[/green] Slack token: configured")
+    else:
+        console.print("[dim]○[/dim] Slack token: not set (optional)")
+
+    if settings.notion_token:
+        console.print("[green]✓[/green] Notion token: configured")
+    else:
+        console.print("[dim]○[/dim] Notion token: not set (optional)")
+
+    console.print(f"\n[dim]API: http://{settings.api_host}:{settings.api_port}[/dim]")
+
+
+@app.command()
 def init(repo: str = typer.Option(..., help="GitHub repository (e.g., owner/repo)")):
     """Initialize Omoikane for a project."""
     from omoikane.db.models import Project, async_session, init_db
