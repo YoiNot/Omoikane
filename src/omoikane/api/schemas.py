@@ -95,3 +95,47 @@ class ADRResponse(BaseModel):
     decided_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+
+class TeamCreate(BaseModel):
+    name: str
+    slug: str
+
+
+class TeamResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    slug: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class UserCreate(BaseModel):
+    email: str
+    name: str = ""
+
+
+class UserResponse(BaseModel):
+    id: uuid.UUID
+    email: str
+    name: str
+    avatar_url: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class MembershipCreate(BaseModel):
+    user_id: uuid.UUID
+    role: str = "member"
+
+
+class MembershipResponse(BaseModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    team_id: uuid.UUID
+    role: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

@@ -12,12 +12,18 @@ from omoikane.api.schemas import (
     ADRResponse,
     ContextRequest,
     ContextResponse,
+    MembershipCreate,
+    MembershipResponse,
     MemoryCreate,
     MemoryResponse,
     ProjectCreate,
     ProjectResponse,
     SearchRequest,
     SearchResult,
+    TeamCreate,
+    TeamResponse,
+    UserCreate,
+    UserResponse,
 )
 from omoikane.db.models import Decision, Memory, Project, get_session
 from omoikane.search.engine import SearchEngine
@@ -256,3 +262,76 @@ async def assemble_cross_context(
         context_block=context_block,
         memories=[r.memory for r in results],
     )
+
+
+@router.post("/teams", response_model=TeamResponse)
+async def create_team(data: TeamCreate, session: SessionDep):
+    from omoikane.db.models import Team
+
+    team = Team(name=data.name, slug=data.slug)
+    session.add(team)
+    await session.commit()
+    await session.refresh(team)
+    return team
+
+
+@router.get("/teams/{team_id}", response_model=TeamResponse)
+async def get_team(team_id: uuid.UUID, session: SessionDep):
+    from omoikane.db.models import Team
+
+    result = await session.execute(select(Team).where(Team.id == team_id))
+    team = result.scalar_one_or_none()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    return team
+
+
+@router.get("/teams/{team_id}/members", response_model=list[MembershipResponse])
+async def list_members(team_id: uuid.UUID, session: SessionDep):
+    from omoikane.db.models import Membership
+
+    result = await session.execute(
+        select(Membership).where(Membership.team_id == team_id)
+    )
+    return result.scalars().all()
+
+
+@router.post("/teams/{team_id}/members", response_model=MembershipResponse)
+async def add_member(
+    team_id: uuid.UUID,
+    data: MembershipCreate,
+    session: SessionDep,
+):
+    from omoikane.db.models import Membership
+
+    membership = Membership(
+        user_id=data.user_id,
+        team_id=team_id,
+        role=data.role,
+    )
+    session.add(membership)
+    await session.commit()
+    await session.refresh(membership)
+    return membership
+
+
+@router.post("/users", response_model=UserResponse)
+async def create_user(data: UserCreate, session: SessionDep):
+    from omoikane.db.models import User
+
+    user = User(email=data.email, name=data.name)
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    return user
+
+
+@router.get("/users/{user_id}", response_model=UserResponse)
+async def get_user(user_id: uuid.UUID, session: SessionDep):
+    from omoikane.db.models import User
+
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
