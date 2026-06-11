@@ -305,6 +305,16 @@ def adr_command(
 
 
 @app.command()
+def mcp():
+    """Start the MCP server (stdio transport)."""
+    import asyncio
+
+    from omoikane.mcp.server import run_mcp_server
+
+    asyncio.run(run_mcp_server())
+
+
+@app.command()
 def serve(
     host: str = typer.Option("0.0.0.0", help="API host"),
     port: int = typer.Option(8420, help="API port"),
