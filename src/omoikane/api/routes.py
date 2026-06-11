@@ -177,3 +177,82 @@ async def list_adrs(project_id: uuid.UUID, session: SessionDep):
         )
         for d in decisions
     ]
+
+
+@router.post("/projects/{project_id}/links")
+async def link_projects(
+    project_id: uuid.UUID,
+    target_id: uuid.UUID,
+    relation: str = "related",
+    session: SessionDep = Depends(get_session),  # noqa: B008
+):
+    from omoikane.db.models import ProjectLink
+
+    link = ProjectLink(
+        source_project_id=project_id,
+        target_project_id=target_id,
+        relation=relation,
+    )
+    session.add(link)
+    await session.commit()
+    return {"status": "linked", "source": project_id, "target": target_id}
+
+
+@router.get("/projects/{project_id}/links")
+async def list_links(project_id: uuid.UUID, session: SessionDep):
+    from omoikane.db.models import ProjectLink
+
+    result = await session.execute(
+        select(ProjectLink).where(
+            (ProjectLink.source_project_id == project_id)
+            | (ProjectLink.target_project_id == project_id)
+        )
+    )
+    links = result.scalars().all()
+    return [
+        {
+            "id": str(link.id),
+            "source": str(link.source_project_id),
+            "target": str(link.target_project_id),
+            "relation": link.relation,
+        }
+        for link in links
+    ]
+
+
+@router.post("/search/cross", response_model=list[SearchResult])
+async def search_cross_project(
+    data: SearchRequest,
+    session: SessionDep,
+):
+    engine = SearchEngine(session)
+    results = await engine.search_cross_project(
+        query=data.query,
+        project_id=data.project_id,
+        memory_type=data.memory_type,
+        limit=data.limit,
+    )
+    return results
+
+
+@router.post("/context/cross", response_model=ContextResponse)
+async def assemble_cross_context(
+    data: ContextRequest,
+    session: SessionDep,
+):
+    engine = SearchEngine(session)
+    context_block = await engine.assemble_cross_project_context(
+        task=data.task,
+        project_id=data.project_id,
+        limit=data.limit,
+    )
+    results = await engine.search_cross_project(
+        query=data.task,
+        project_id=data.project_id,
+        limit=data.limit,
+    )
+    return ContextResponse(
+        task=data.task,
+        context_block=context_block,
+        memories=[r.memory for r in results],
+    )
