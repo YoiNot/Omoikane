@@ -1,33 +1,76 @@
 {
   "name": "omoikane",
   "displayName": "Omoikane — AI Workspace Memory",
-  "description": "Persistent memory layer for AI-assisted development",
+  "description": "Persistent memory layer for AI-assisted development. Search, create, and assemble context from your project memories.",
   "version": "0.1.0",
   "publisher": "yoi",
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": ["Other"],
-  "activationEvents": ["onStartupFinished"],
+  "activationEvents": [],
   "main": "./out/extension.js",
+  "icon": "assets/icon.png",
   "contributes": {
     "commands": [
-      {
-        "command": "omoikane.search",
-        "title": "Omoikane: Search Memories"
-      },
-      {
-        "command": "omoikane.context",
-        "title": "Omoikane: Assemble Context"
-      },
-      {
-        "command": "omoikane.createMemory",
-        "title": "Omoikane: Create Memory"
-      },
-      {
-        "command": "omoikane.createADR",
-        "title": "Omoikane: Create ADR"
-      }
+      { "command": "omoikane.search", "title": "Search Memories", "category": "Omoikane" },
+      { "command": "omoikane.context", "title": "Assemble Context", "category": "Omoikane" },
+      { "command": "omoikane.createMemory", "title": "Create Memory from Selection", "category": "Omoikane" },
+      { "command": "omoikane.createADR", "title": "Create Architecture Decision Record", "category": "Omoikane" },
+      { "command": "omoikane.listMemories", "title": "List All Memories", "category": "Omoikane" },
+      { "command": "omoikane.listADRs", "title": "List All ADRs", "category": "Omoikane" },
+      { "command": "omoikane.crossSearch", "title": "Search Across Linked Projects", "category": "Omoikane" },
+      { "command": "omoikane.refresh", "title": "Refresh", "category": "Omoikane", "icon": "$(refresh)" },
+      { "command": "omoikane.configure", "title": "Configure Project", "category": "Omoikane" },
+      { "command": "omoikane.viewMemory", "title": "View Memory", "category": "Omoikane" }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "omoikane-sidebar",
+          "title": "Omoikane",
+          "icon": "$(brain)"
+        }
+      ]
+    },
+    "views": {
+      "omoikane-sidebar": [
+        {
+          "id": "omoikane.memories",
+          "name": "Memories",
+          "icon": "$(notebook)"
+        },
+        {
+          "id": "omoikane.adrs",
+          "name": "Decision Records",
+          "icon": "$(git-commit)"
+        }
+      ]
+    },
+    "menus": {
+      "commandPalette": [
+        { "command": "omoikane.viewMemory", "when": "false" }
+      ],
+      "editor/context": [
+        {
+          "command": "omoikane.createMemory",
+          "when": "editorHasSelection",
+          "group": "omoikane@1"
+        },
+        {
+          "command": "omoikane.context",
+          "group": "omoikane@2"
+        }
+      ],
+      "view/title": [
+        { "command": "omoikane.refresh", "when": "view == omoikane.memories", "group": "navigation" },
+        { "command": "omoikane.refresh", "when": "view == omoikane.adrs", "group": "navigation" }
+      ]
+    },
+    "keybindings": [
+      { "command": "omoikane.search", "key": "ctrl+shift+m", "mac": "cmd+shift+m" },
+      { "command": "omoikane.context", "key": "ctrl+shift+.", "mac": "cmd+shift+." },
+      { "command": "omoikane.createMemory", "key": "ctrl+shift+alt+m", "mac": "cmd+shift+alt+m", "when": "editorHasSelection" }
     ],
     "configuration": {
       "title": "Omoikane",
@@ -35,12 +78,17 @@
         "omoikane.apiUrl": {
           "type": "string",
           "default": "http://localhost:8420",
-          "description": "Omoikane API URL"
+          "description": "Omoikane API server URL"
         },
         "omoikane.projectId": {
           "type": "string",
           "default": "",
           "description": "Default project UUID"
+        },
+        "omoikane.autoContext": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically assemble context when opening files"
         }
       }
     }
@@ -48,7 +96,8 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
   },
   "devDependencies": {
     "@types/vscode": "^1.85.0",
