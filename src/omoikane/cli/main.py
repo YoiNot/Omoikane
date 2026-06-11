@@ -396,6 +396,86 @@ def context_all(
     asyncio.run(_context_all())
 
 
+@app.command(name="team-create")
+def team_create(
+    name: str = typer.Option(..., help="Team name"),
+    slug: str = typer.Option(..., help="Team slug"),
+):
+    """Create a new team."""
+    from omoikane.db.models import Team, async_session, init_db
+
+    async def _team_create():
+        await init_db()
+        async with async_session() as session:
+            team = Team(name=name, slug=slug)
+            session.add(team)
+            await session.commit()
+            await session.refresh(team)
+            console.print(f"[green]Team created: {team.id} ({team.slug})[/green]")
+
+    asyncio.run(_team_create())
+
+
+@app.command(name="team-add-member")
+def team_add_member(
+    team_id: str = typer.Option(..., help="Team UUID"),
+    user_id: str = typer.Option(..., help="User UUID"),
+    role: str = typer.Option("member", help="Role: member, admin, owner"),
+):
+    """Add a member to a team."""
+    from omoikane.db.models import Membership, async_session, init_db
+
+    async def _add_member():
+        await init_db()
+        async with async_session() as session:
+            membership = Membership(
+                user_id=uuid.UUID(user_id),
+                team_id=uuid.UUID(team_id),
+                role=role,
+            )
+            session.add(membership)
+            await session.commit()
+            console.print(f"[green]Added user to team: {role}[/green]")
+
+    asyncio.run(_add_member())
+
+
+@app.command(name="team-list")
+def team_list(
+    team_id: str = typer.Option(..., help="Team UUID"),
+):
+    """List team members."""
+    from sqlalchemy import select
+
+    from omoikane.db.models import Membership, User, async_session, init_db
+
+    async def _team_list():
+        await init_db()
+        async with async_session() as session:
+            result = await session.execute(
+                select(Membership, User)
+                .join(User, Membership.user_id == User.id)
+                .where(Membership.team_id == uuid.UUID(team_id))
+            )
+            rows = result.fetchall()
+
+            if not rows:
+                console.print("[dim]No members found.[/dim]")
+                return
+
+            table = Table(title="Team Members")
+            table.add_column("Name", style="bold")
+            table.add_column("Email", style="dim")
+            table.add_column("Role", style="cyan")
+
+            for membership, user in rows:
+                table.add_row(user.name or user.email, user.email, membership.role)
+
+            console.print(table)
+
+    asyncio.run(_team_list())
+
+
 @app.command()
 def mcp():
     """Start the MCP server (stdio transport)."""
