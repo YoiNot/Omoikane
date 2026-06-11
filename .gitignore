@@ -9,3 +9,7 @@ build/
 .ruff_cache/
 .pytest_cache/
 .env
+.mimocode/
+node_modules/
+out/
+package-lock.json
