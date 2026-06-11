@@ -28,12 +28,14 @@ class Project(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
     description = Column(Text, default="")
+    team_id = Column(UUID(as_uuid=True), ForeignKey("teams.id"), nullable=True)
     settings = Column(JSONB, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     memories = relationship("Memory", back_populates="project", cascade="all, delete-orphan")
     sources = relationship("Source", back_populates="project", cascade="all, delete-orphan")
+    team = relationship("Team", back_populates="projects")
 
 
 class Memory(Base):
@@ -147,6 +149,52 @@ class ProjectLink(Base):
 
     source_project = relationship("Project", foreign_keys=[source_project_id])
     target_project = relationship("Project", foreign_keys=[target_project_id])
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email = Column(String, unique=True, nullable=False)
+    name = Column(String, default="")
+    avatar_url = Column(String, default="")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_login = Column(DateTime, nullable=True)
+
+    memberships = relationship("Membership", back_populates="user", cascade="all, delete-orphan")
+
+
+class Team(Base):
+    __tablename__ = "teams"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=False)
+    slug = Column(String, unique=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    memberships = relationship("Membership", back_populates="team", cascade="all, delete-orphan")
+    projects = relationship("Project", back_populates="team")
+
+
+class Membership(Base):
+    __tablename__ = "memberships"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    team_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("teams.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    role = Column(String, default="member")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="memberships")
+    team = relationship("Team", back_populates="memberships")
 
 
 engine = create_async_engine(settings.database_url, echo=False)
