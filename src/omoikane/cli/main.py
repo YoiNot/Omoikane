@@ -148,18 +148,101 @@ def context(
 @app.command(name="adr")
 def adr_command(
     action: str = typer.Argument(..., help="Action: create, list"),
-    project_id: str = typer.Option(None, help="Project UUID"),
+    project_id: str = typer.Option(..., help="Project UUID"),
     title: str = typer.Option(None, help="ADR title"),
 ):
     """Manage Architecture Decision Records."""
+    from omoikane.api.schemas import ADRCreate
+    from omoikane.db.models import async_session, init_db
+
+    async def _create_adr():
+        await init_db()
+        async with async_session() as session:
+            from omoikane.search.engine import SearchEngine
+
+            if not title:
+                console.print("[red]Provide --title for ADR creation[/red]")
+                raise typer.Exit(1)
+
+            console.print(f"[bold]Creating ADR: {title}[/bold]")
+            context_text = console.input("[dim]Context (why this decision?): [/dim]")
+            decision_text = console.input("[dim]Decision (what was decided?): [/dim]")
+            consequences_text = console.input("[dim]Consequences: [/dim]")
+
+            data = ADRCreate(
+                project_id=uuid.UUID(project_id),
+                title=title,
+                context=context_text,
+                decision=decision_text,
+                consequences=consequences_text,
+            )
+
+            engine = SearchEngine(session)
+            content = (
+                f"## Context\n{data.context}\n\n"
+                f"## Decision\n{data.decision}\n\n"
+                f"## Consequences\n{data.consequences}"
+            )
+            from omoikane.db.models import Decision, Memory
+
+            memory = Memory(
+                project_id=data.project_id,
+                type="decision",
+                title=data.title,
+                content=content,
+                summary=data.decision,
+            )
+            session.add(memory)
+            await session.flush()
+
+            decision = Decision(
+                memory_id=memory.id,
+                project_id=data.project_id,
+                title=data.title,
+                context=data.context,
+                decision=data.decision,
+                consequences=data.consequences,
+                status="accepted",
+            )
+            session.add(decision)
+            await session.commit()
+
+            await engine.store_embedding(memory.id, f"{data.title}\n\n{content}")
+
+            console.print(f"[green]ADR created: {decision.id}[/green]")
+
+    async def _list_adrs():
+        await init_db()
+        async with async_session() as session:
+            from sqlalchemy import select
+
+            from omoikane.db.models import Decision
+
+            result = await session.execute(
+                select(Decision)
+                .where(Decision.project_id == uuid.UUID(project_id))
+                .order_by(Decision.created_at.desc())
+            )
+            decisions = result.scalars().all()
+
+            if not decisions:
+                console.print("[dim]No ADRs found.[/dim]")
+                return
+
+            table = Table(title="Architecture Decision Records")
+            table.add_column("Title", style="bold")
+            table.add_column("Status", style="cyan")
+            table.add_column("Decision", style="dim")
+
+            for d in decisions:
+                table.add_row(d.title, d.status, d.decision[:80])
+
+            console.print(table)
+
     if action == "create":
-        if not title:
-            console.print("[red]Provide --title for ADR creation[/red]")
-            raise typer.Exit(1)
-        console.print(f"[bold]Creating ADR: {title}[/bold]")
-        console.print("[dim]Interactive ADR creation coming soon.[/dim]")
+        asyncio.run(_create_adr())
     elif action == "list":
-        console.print("[dim]ADR listing coming soon.[/dim]")
+        asyncio.run(_list_adrs())
     else:
         console.print(f"[red]Unknown action: {action}[/red]")
 

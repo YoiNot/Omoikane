@@ -19,7 +19,7 @@ from omoikane.api.schemas import (
     SearchRequest,
     SearchResult,
 )
-from omoikane.db.models import Memory, Project, get_session
+from omoikane.db.models import Decision, Memory, Project, get_session
 from omoikane.search.engine import SearchEngine
 
 router = APIRouter()
@@ -123,12 +123,7 @@ async def create_adr(data: ADRCreate, session: SessionDep):
     session.add(memory)
     await session.flush()
 
-    import sqlalchemy as sa
-
-    from omoikane.db.models import Base
-
-    adr = sa.Table("decisions", Base.metadata, autoload_with=session.bind)
-    insert_stmt = adr.insert().values(
+    decision = Decision(
         memory_id=memory.id,
         project_id=data.project_id,
         title=data.title,
@@ -139,12 +134,12 @@ async def create_adr(data: ADRCreate, session: SessionDep):
         status="accepted",
         participants=data.participants,
     )
-    result = await session.execute(insert_stmt.returning(adr))
-    row = result.fetchone()
+    session.add(decision)
     await session.commit()
+    await session.refresh(decision)
 
     return ADRResponse(
-        id=row["id"],
+        id=decision.id,
         memory_id=memory.id,
         project_id=data.project_id,
         title=data.title,
@@ -160,30 +155,25 @@ async def create_adr(data: ADRCreate, session: SessionDep):
 
 @router.get("/decisions/{project_id}", response_model=list[ADRResponse])
 async def list_adrs(project_id: uuid.UUID, session: SessionDep):
-    import sqlalchemy as sa
-
-    from omoikane.db.models import Base
-
-    adr = sa.Table("decisions", Base.metadata, autoload_with=session.bind)
     result = await session.execute(
-        select(adr)
-        .where(adr.c.project_id == project_id)
-        .order_by(adr.c.decided_at.desc())
+        select(Decision)
+        .where(Decision.project_id == project_id)
+        .order_by(Decision.created_at.desc())
     )
-    rows = result.fetchall()
+    decisions = result.scalars().all()
     return [
         ADRResponse(
-            id=row["id"],
-            memory_id=row["memory_id"],
-            project_id=row["project_id"],
-            title=row["title"],
-            context=row["context"] or "",
-            decision=row["decision"],
-            consequences=row["consequences"] or "",
-            alternatives=row["alternatives"] or [],
-            status=row["status"],
-            participants=row["participants"] or [],
-            decided_at=row["decided_at"],
+            id=d.id,
+            memory_id=d.memory_id,
+            project_id=d.project_id,
+            title=d.title,
+            context=d.context,
+            decision=d.decision,
+            consequences=d.consequences,
+            alternatives=d.alternatives or [],
+            status=d.status,
+            participants=d.participants or [],
+            decided_at=d.decided_at,
         )
-        for row in rows
+        for d in decisions
     ]

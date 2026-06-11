@@ -100,6 +100,34 @@ class Source(Base):
     project = relationship("Project", back_populates="sources")
 
 
+class Decision(Base):
+    __tablename__ = "decisions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    memory_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("memories.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    project_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    title = Column(String, nullable=False)
+    context = Column(Text, default="")
+    decision = Column(Text, nullable=False)
+    consequences = Column(Text, default="")
+    alternatives = Column(JSONB, default=list)
+    status = Column(String, default="accepted")
+    participants = Column(JSONB, default=list)
+    decided_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    memory = relationship("Memory")
+    project = relationship("Project")
+
+
 engine = create_async_engine(settings.database_url, echo=False)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
