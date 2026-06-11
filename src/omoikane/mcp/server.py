@@ -187,6 +187,55 @@ def create_mcp_server() -> Server:
                     "required": ["project_id"],
                 },
             ),
+            Tool(
+                name="link_projects",
+                description="Link two projects for cross-project memory sharing.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "source_project_id": {
+                            "type": "string",
+                            "description": "Source project UUID",
+                        },
+                        "target_project_id": {
+                            "type": "string",
+                            "description": "Target project UUID",
+                        },
+                        "relation": {
+                            "type": "string",
+                            "description": "Relation type (default: related)",
+                            "default": "related",
+                        },
+                    },
+                    "required": ["source_project_id", "target_project_id"],
+                },
+            ),
+            Tool(
+                name="search_cross_project",
+                description=(
+                    "Search across linked projects. "
+                    "Finds memories from the project and all linked projects."
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Natural language search query",
+                        },
+                        "project_id": {
+                            "type": "string",
+                            "description": "Project UUID (searches linked projects too)",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Max results (default 10)",
+                            "default": 10,
+                        },
+                    },
+                    "required": ["query", "project_id"],
+                },
+            ),
         ]
 
     @server.call_tool()
@@ -322,6 +371,48 @@ def create_mcp_server() -> Server:
                         f"Decision: {d.decision}\n"
                     )
                 return [TextContent(type="text", text="\n---\n".join(lines))]
+
+            elif name == "link_projects":
+                from omoikane.db.models import ProjectLink
+
+                link = ProjectLink(
+                    source_project_id=uuid.UUID(arguments["source_project_id"]),
+                    target_project_id=uuid.UUID(arguments["target_project_id"]),
+                    relation=arguments.get("relation", "related"),
+                )
+                session.add(link)
+                await session.commit()
+                return [
+                    TextContent(
+                        type="text",
+                        text=(
+                            f"Linked projects: "
+                            f"{arguments['source_project_id']} <-> "
+                            f"{arguments['target_project_id']}"
+                        ),
+                    )
+                ]
+
+            elif name == "search_cross_project":
+                results = await engine.search_cross_project(
+                    query=arguments["query"],
+                    project_id=uuid.UUID(arguments["project_id"]),
+                    limit=arguments.get("limit", 10),
+                )
+                output = []
+                for r in results:
+                    output.append(
+                        f"[{r.memory.type}] {r.memory.title} "
+                        f"(score: {r.score:.2f}, "
+                        f"project: {str(r.memory.project_id)[:8]})\n"
+                        f"{r.memory.content}\n"
+                    )
+                return [
+                    TextContent(
+                        type="text",
+                        text="\n---\n".join(output) or "No results found.",
+                    )
+                ]
 
             else:
                 return [TextContent(type="text", text=f"Unknown tool: {name}")]
