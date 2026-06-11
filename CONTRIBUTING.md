@@ -33,7 +33,7 @@ export OMOIKANE_OPENAI_API_KEY="sk-..."
 
 - Python 3.11+
 - Formatter/Linter: `ruff check src/`
-- Type checker: `mypy src/ --ignore-missing-imports`
+- Type checker: `mypy src/omoikane`
 - Max line length: 100 characters
 
 ## Project Structure

@@ -140,13 +140,23 @@ Endpoints:
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/v1/projects` | Create project |
+| GET | `/v1/projects/:id` | Get project |
 | POST | `/v1/memories` | Create memory |
+| GET | `/v1/projects/:id/memories` | List project memories |
 | POST | `/v1/search` | Semantic search |
 | POST | `/v1/context` | Context assembly |
 | POST | `/v1/decisions` | Create ADR |
 | GET | `/v1/decisions/:project_id` | List ADRs |
 | POST | `/v1/projects/:id/links` | Link projects |
+| GET | `/v1/projects/:id/links` | List project links |
 | POST | `/v1/search/cross` | Cross-project search |
+| POST | `/v1/context/cross` | Cross-project context |
+| POST | `/v1/teams` | Create team |
+| GET | `/v1/teams/:id` | Get team |
+| GET | `/v1/teams/:id/members` | List team members |
+| POST | `/v1/teams/:id/members` | Add team member |
+| POST | `/v1/users` | Create user |
+| GET | `/v1/users/:id` | Get user |
 
 ## Pricing
 
@@ -186,7 +196,7 @@ pip install -e ".[dev]"
 ruff check src/
 
 # Run type checker
-mypy src/ --ignore-missing-imports
+mypy src/omoikane
 
 # Run tests
 pytest
