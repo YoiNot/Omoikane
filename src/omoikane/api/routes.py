@@ -178,8 +178,8 @@ async def list_adrs(project_id: uuid.UUID, session: SessionDep) -> list[ADRRespo
 async def link_projects(
     project_id: uuid.UUID,
     target_id: uuid.UUID,
+    session: SessionDep,
     relation: str = "related",
-    session: SessionDep = Depends(get_session),  # noqa: B008
 ) -> dict[str, str | uuid.UUID]:
     from omoikane.db.models import ProjectLink
 
